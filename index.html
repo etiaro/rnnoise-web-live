@@ -1,0 +1,124 @@
+<html>
+    <head>
+        <script type="module" src="offlineProcess.js"></script>
+        <script>
+            let rnnoiseStream;
+            async function getRnnoiseStream(stream){
+                if(rnnoiseStream) return rnnoiseStream;
+
+                const audioContext = new AudioContext({ sampleRate: 44100 });
+                await audioContext.audioWorklet.addModule('./rnnoise/RnnoiseWorklet.js');
+                const rnnoiseNode = new AudioWorkletNode(
+                    audioContext,
+                    'rnnoise-processor',
+                    {
+                        processorOptions: {
+                        wasm: (await (await fetch('/rnnoise/wasm/rnnoise.wasm'))['arrayBuffer']()),
+                        },
+                    },
+                );
+                const dst = audioContext.createMediaStreamDestination();
+                rnnoiseNode.connect(dst);
+                audioContext.createMediaStreamSource(stream).connect(rnnoiseNode);
+                rnnoiseStream = dst.stream;
+                return dst.stream;
+            }
+            let micStream;
+            async function getMicrophone(){
+                if(micStream) return micStream;
+                return await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 44100,
+                        autoGainControl: true,
+                        noiseSuppression: true,
+                        channelCount: 2,
+                    },
+                });
+            }
+
+            //LIVE playback
+            let audio = new Audio();
+            async function playLive(){
+                document.getElementById('live').disabled = true;
+                document.getElementById('stopLive').disabled = false;
+                if(!audio.srcObject){
+                    const stream = await getRnnoiseStream(await getMicrophone());
+                    audio.srcObject = stream;
+                }
+                audio.play();
+            }
+            function stopLive(){
+                document.getElementById('live').disabled = false;
+                document.getElementById('stopLive').disabled = true;
+                audio.pause();
+            }
+
+
+            //RECORDING
+            let cleanData, processedData;
+            let cleanRecorder, processedRecorder;
+            async function recordAudio(){
+                stopLive();
+                document.getElementById('record').disabled = true;
+                document.getElementById('stopRecord').disabled = false;
+
+                let micStream = await getMicrophone();
+                cleanRecorder = new MediaRecorder(micStream);
+                cleanRecorder.ondataavailable = (event)=>{
+                    cleanData = event.data;
+                    const audioEl = document.getElementById("cleanRecording");
+                    audioEl.src = URL.createObjectURL(cleanData);
+                    audioEl.load(); 
+                    processBlob(cleanData, (wav)=>{
+                        const url = window.URL.createObjectURL(wav);
+                        const audioEl = document.getElementById("offlineProcRecording");
+                        audioEl.src = url;
+                        audioEl.load();
+                    });
+                };
+                cleanRecorder.start();
+
+                let processedStream = await getRnnoiseStream(micStream);
+                processedRecorder = new MediaRecorder(processedStream);
+                processedRecorder.ondataavailable = (event)=>{
+                    processedData = event.data;
+                    const audioEl = document.getElementById("processedRecording");
+                    audioEl.src = URL.createObjectURL(processedData);
+                    audioEl.load(); 
+                };
+                processedRecorder.start();
+            }
+            function stopRecording(){
+                document.getElementById('record').disabled = false;
+                document.getElementById('stopRecord').disabled = true;
+                cleanRecorder.stop();
+                processedRecorder.stop();
+            }
+      </script>
+      <style>
+          .audioPlayer{
+              display:inline-block;
+          }
+      </style>
+    </head>
+    <body>
+        <button id="live" onclick="playLive()">Play live</button>
+        <button id="stopLive" onclick="stopLive()" disabled>Stop live</button>
+        <br>
+        <button id="record" onclick="recordAudio()">Record</button>
+        <button id="stopRecord" onclick="stopRecording()" disabled>Stop recording</button>
+        <br>
+        <div class="audioPlayer">
+            <p>Clean Recording:</p>
+            <audio id="cleanRecording" controls></audio>
+        </div>
+        <div class="audioPlayer">
+            <p>Processed Recording:</p>
+            <audio id="processedRecording" controls></audio>
+        </div>
+        <div class="audioPlayer">
+            <p>Offline Processed Recording:</p>
+            <audio id="offlineProcRecording" controls></audio>
+        </div>
+    </body>
+</html>

@@ -131,7 +131,7 @@ const Module = (function () {
         return String.prototype.startsWith ? str.startsWith(prefix) : str.indexOf(prefix) === 0;
       } const dataURIPrefix = 'data:application/octet-stream;base64,'; function isDataURI(filename) {
         return hasPrefix(filename, dataURIPrefix);
-      } let wasmBinaryFile = '/rnnoise/wasm/rnnoise.wasm'; if (!isDataURI(wasmBinaryFile)) {
+      } let wasmBinaryFile = './rnnoise/wasm/rnnoise.wasm'; if (!isDataURI(wasmBinaryFile)) {
         wasmBinaryFile = locateFile(wasmBinaryFile);
       } function getBinary() {
         try {

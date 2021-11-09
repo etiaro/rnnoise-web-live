@@ -113,8 +113,10 @@ export default class RnnoiseProcessor {
         }
     }
 
-    _convertFrom16BitPCM = (f32) => {
-        return f32 / (1<<15);
+    _convertFrom16BitPCM = (f32Array) => {
+        for (const [index, value] of f32Array.entries()) {
+            f32Array[index] = value / (1<<15);
+        }
     }
     /**
      * Release resources associated with the wasm context. If something goes downhill here
@@ -180,7 +182,7 @@ export default class RnnoiseProcessor {
      * The size of the array must be of exactly 480 samples, this constraint comes from the rnnoise library.
      *
      * @param {Float32Array} pcmFrame - Array containing 32 bit PCM samples.
-     * @param {Array} output - Array(sized to sampleSize) to be filled with output
+     * @param {Array} output - Array to be pushed with output
      * @param {Integer} sampleSize - output sample size
      * @returns {Float} Contains VAD score in the interval 0 - 1 i.e. 0.90 .
      */
@@ -199,8 +201,8 @@ export default class RnnoiseProcessor {
         this._convertTo16BitPCM(pcmFrame);
         this._copyPCMSampleToWasmBuffer(pcmFrame);
         this._wasmInterface._rnnoise_process_frame(this._context, this._wasmPcmOutput, this._wasmPcmInput);
-        for (let v = 0; v < sampleSize; v++) {
-            output[v] = this._convertFrom16BitPCM(this._wasmInterface.HEAPF32[this._wasmPcmOutput / Float32Array.BYTES_PER_ELEMENT + v]);
-        }
+        let res = this._wasmInterface.HEAPF32.slice(this._wasmPcmOutput / Float32Array.BYTES_PER_ELEMENT, this._wasmPcmOutput / Float32Array.BYTES_PER_ELEMENT + sampleSize);
+        this._convertFrom16BitPCM(res);
+        output.push(...res);
     }
 }

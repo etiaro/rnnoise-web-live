@@ -1,7 +1,7 @@
 import { createRnnoiseProcessor, RNNOISE_SAMPLE_LENGTH } from './rnnoise/index.js';
 
 let audioContext;
-const SAMPLE_LENGTH = 128;
+const SAMPLE_LENGTH = 480;
 
 window.processBlob = (blob, cb)=>{
     if(!audioContext) audioContext = new AudioContext({sampleRate: 44100});
@@ -15,7 +15,7 @@ window.processBlob = (blob, cb)=>{
                 const input = audioBuffer.getChannelData(0);
                 const output = new Float32Array(input.length);
                 for(let i = 0; i+RNNOISE_SAMPLE_LENGTH < audioBuffer.length; i += SAMPLE_LENGTH){
-                    let tmp = new Float32Array(SAMPLE_LENGTH);
+                    let tmp = [];
                     processor.calculateRnnoiseOutput(input.slice(i, i+RNNOISE_SAMPLE_LENGTH), tmp, SAMPLE_LENGTH);
                     output.set(tmp, i);
                 }
@@ -24,6 +24,18 @@ window.processBlob = (blob, cb)=>{
             cb(audioBufferToBlob(audioBuffer));
         });
     }
+}
+
+window.blobToWav = (blob, cb)=>{
+  if(!audioContext) audioContext = new AudioContext({sampleRate: 44100});
+    let fileReader = new FileReader();
+    fileReader.readAsArrayBuffer(blob);
+    fileReader.onloadend = () => {
+        let arrayBuffer = fileReader.result;
+        audioContext.decodeAudioData(arrayBuffer, async (audioBuffer) => {
+          cb(audioBufferToBlob(audioBuffer));
+        });
+      }
 }
 
 

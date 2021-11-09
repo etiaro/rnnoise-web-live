@@ -13,7 +13,7 @@
                     'rnnoise-processor',
                     {
                         processorOptions: {
-                        wasm: (await (await fetch('/rnnoise/wasm/rnnoise.wasm'))['arrayBuffer']()),
+                        wasm: (await (await fetch('./rnnoise/wasm/rnnoise.wasm'))['arrayBuffer']()),
                         },
                     },
                 );
@@ -66,13 +66,15 @@
                 cleanRecorder = new MediaRecorder(micStream);
                 cleanRecorder.ondataavailable = (event)=>{
                     cleanData = event.data;
-                    const audioEl = document.getElementById("cleanRecording");
-                    audioEl.src = URL.createObjectURL(cleanData);
-                    audioEl.load(); 
+                    blobToWav(cleanData, (wav)=>{
+                        const audioEl = document.getElementById("cleanRecording");
+                        audioEl.src = URL.createObjectURL(wav);
+                        audioEl.load(); 
+                    })
+                    
                     processBlob(cleanData, (wav)=>{
-                        const url = window.URL.createObjectURL(wav);
                         const audioEl = document.getElementById("offlineProcRecording");
-                        audioEl.src = url;
+                        audioEl.src = window.URL.createObjectURL(wav);
                         audioEl.load();
                     });
                 };
@@ -82,9 +84,11 @@
                 processedRecorder = new MediaRecorder(processedStream);
                 processedRecorder.ondataavailable = (event)=>{
                     processedData = event.data;
-                    const audioEl = document.getElementById("processedRecording");
-                    audioEl.src = URL.createObjectURL(processedData);
-                    audioEl.load(); 
+                    blobToWav(processedData, (wav)=>{
+                        const audioEl = document.getElementById("processedRecording");
+                        audioEl.src = URL.createObjectURL(wav);
+                        audioEl.load(); 
+                    })
                 };
                 processedRecorder.start();
             }

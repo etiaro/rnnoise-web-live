@@ -5,6 +5,7 @@ class RnnoiseProcessorrr extends AudioWorkletProcessor {
     super();
     this.init(options.processorOptions.wasm);
     this.buffer = [];
+    this.outputBuffer = [];
   }
   async init(data) {
     this.processor = await createRnnoiseProcessor(data);
@@ -13,16 +14,16 @@ class RnnoiseProcessorrr extends AudioWorkletProcessor {
   process(inputs, outputs, parameters) {
     const output = outputs[0];
     const input = inputs[0];
-    for (let ch = 0; ch < output.length; ch++) {
-      if (this.buffer.length <= ch) this.buffer[ch] = new Float32Array(RNNOISE_SAMPLE_LENGTH);
-      // move everything by input length
-      for (let i = 0; i < RNNOISE_SAMPLE_LENGTH - input[ch].length; i++) {
-        this.buffer[ch][i] = this.buffer[ch][i + input[ch].length];
-      }
+    for (let ch = 0; ch < input.length; ch++) {
+      if (this.buffer.length <= ch) this.buffer[ch] = [];
+      if (this.outputBuffer.length <= ch) this.outputBuffer[ch] = [];
       // add input at the end
-      this.buffer[ch].set(input[ch], RNNOISE_SAMPLE_LENGTH - input[ch].length);
-      // copy buffer because rnnoise is modifying input array
-      this.processor.calculateRnnoiseOutput(this.buffer[ch].slice(0), output[ch], input[ch].length);
+      this.buffer[ch].push(...input[ch]);
+      
+      if(this.buffer[ch].length >= RNNOISE_SAMPLE_LENGTH)
+        this.processor.calculateRnnoiseOutput(this.buffer[ch].splice(0, RNNOISE_SAMPLE_LENGTH), this.outputBuffer[ch], RNNOISE_SAMPLE_LENGTH);
+
+      output[ch].set(this.outputBuffer[ch].splice(0,128));
     }
 
     return true;
